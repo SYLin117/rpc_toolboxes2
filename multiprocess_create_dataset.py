@@ -43,22 +43,15 @@ SHADOW_COLOR = [0x393433, 0x2a2727]
 
 
 def buy_strategic(counter):
-    """
-
-    Args:
-        counter:
-
-    Returns:num_per_category, difficulty
-
-    """
+    # 回傳每張圖片有幾個類別與物件
     global NUM_CATEGORIES
     categories = [i + 1 for i in range(NUM_CATEGORIES)]
     diff_list = [1, 2, 3]
-    dist = [.6, .3, .1]
+    dist = [.7, .2, .1]
     difficulty = random.choices(diff_list, weights=dist, k=1, )[0]
     num_categories = 1
     if difficulty == 1:
-        num_categories = random.randint(1, 2)
+        num_categories = random.randint(1, 4)
         counter['easy_mode'] += 1
     elif difficulty == 2:
         num_categories = random.randint(4, 7)
@@ -244,7 +237,7 @@ def create_image(output_dir, output_dir2, object_category_paths, level_dict, ima
                 obj = obj.crop((x, y, x + w, y + h))
                 mask = mask.crop((x, y, x + w, y + h))
 
-                scale_mean = 0.6  # 稍微縮小疫點比較不會一直重疊
+                scale_mean = 0.8  # 稍微縮小疫點比較不會一直重疊
                 std = 0.03
                 low = scale_mean - 3 * std
                 up = scale_mean + 3 * std
@@ -373,11 +366,11 @@ def init_globals(ann_counter, ann_json, image_json, ):
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Synthesize fake images")
-    parser.add_argument('--gen_num', type=int, default=1000,
+    parser.add_argument('--gen_num', type=int, default=50,
                         help='how many number of images need to create.')
     parser.add_argument('--suffix', type=str, default='test',
                         help='suffix for image folder and json file')
-    parser.add_argument('--thread', type=int, default=8,
+    parser.add_argument('--thread', type=int, default=7,
                         help='using how many thread to create')
     parser.add_argument('--chg_bg', type=bool, default=False,
                         help='use multiple background or not.')

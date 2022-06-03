@@ -19,24 +19,20 @@ def sort_ann_by_img(json_path):
 
 
 # 提取一些基本訊息
-demo_json_path = os.path.join('D:/datasets/retail_product_checkout', 'instances_train2019.json')
+demo_json_path = r"D:\datasets\tw_rpc\train2019.json"
 with open(demo_json_path) as fid:
     demo_data = json.load(fid)
 
 json_list = [
-    r"D:\datasets\retail_product_checkout\instances_val2019_quarter.json",
-    r'D:/datasets/rpc_list2/synthesize_15000_final1.json',
-    r'D:/datasets/rpc_list2/synthesize_15000_final2.json',
-
+    r"D:\datasets\tw_rpc\val2019.json",
+    r"D:\PycharmProject\rpc_toolboxes2\synthesize\synthesize_1500_test.json",
 ]
 img_list = [
-    os.path.join('D:/datasets/retail_product_checkout', 'val2019'),
-    r'D:/datasets/rpc_list2/synthesize_15000_final1',
-    r'D:/datasets/rpc_list2/synthesize_15000_final2(cyclegan)',
-
+    r"D:\datasets\tw_rpc\val2019",
+    r"D:\PycharmProject\rpc_toolboxes2\synthesize\synthesize_1500_test_shadow",
 ]
-save_dir_root = r'D:/datasets/rpc_list2'
-save_folder = 'val_quarter_final1_final2(cyclegan)'
+save_dir_root = r'D:\datasets\tw_rpc\combine'
+save_folder = 'val_syn1500'
 save_path = os.path.join(save_dir_root, save_folder)
 os.makedirs(save_path, exist_ok=True)
 new_json = defaultdict()
@@ -63,10 +59,8 @@ for i, (json_path, img_folder) in enumerate(zip(json_list, img_list)):
             new_annotations.append(ann)
             new_ann_idx += 1
         new_image_idx += 1
-new_json['info'] = demo_data['info']
-new_json['licenses'] = demo_data['licenses']
+
 new_json['categories'] = demo_data['categories']
-new_json['__raw_Chinese_name_df'] = demo_data['__raw_Chinese_name_df']
 new_json['images'] = new_images
 new_json['annotations'] = new_annotations
 with open(os.path.join(save_dir_root, save_folder + '.json'), 'w') as fid:
