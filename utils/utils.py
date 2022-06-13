@@ -60,7 +60,7 @@ def checkout_rename(rootDir: str, saveDir: str):
 
 def save_bbox_image(imgDir: str, jsonDir: str, saveBboxDir: str, saveMaskDir: str):
     """
-    將bbox的範圍儲存成影像
+    將bbox的範圍儲存成影像 (對train2019使用)
     :param imgDir:
     :param jsonDir:
     :param saveDir:
@@ -111,7 +111,9 @@ def split_checkout_images(imgDir: str):
     valDir = ospath.join(parentDir, 'val2019')
     testDir = ospath.join(parentDir, 'test2019')
     for file in files:
-        val_or_test = random.randint(1, 2)
+        diff_list = [1, 2]
+        dist = [.8, .2]
+        val_or_test = random.choices(diff_list, weights=dist, k=1, )[0]
         if val_or_test == 1:
             shutil.copyfile(file, ospath.join(valDir, ospath.basename(file)))
         else:
@@ -120,15 +122,19 @@ def split_checkout_images(imgDir: str):
 
 def split_twrpc_json(jsonDir: str):
     """
-    將json資料依照val2019 test2019分類
+    將json資料依照train2019 val2019 test2019分類
     :param jsonDir:
     :return:
     """
     with open(jsonDir) as f:
         jsonData = json.load(f)
     parentDir = os.path.abspath(os.path.join(jsonDir, '..'))
+    saveTrainDir = ospath.join(parentDir, 'train2019.json')
     saveValDir = ospath.join(parentDir, 'val2019.json')
     saveTestDir = ospath.join(parentDir, 'test2019.json')
+
+    trainFiles = glob.glob(ospath.join(parentDir, 'train2019', '*.jpg'))
+    trainFiles = [ospath.basename(i) for i in trainFiles]
 
     valFiles = glob.glob(ospath.join(parentDir, 'val2019', '*.jpg'))
     valFiles = [ospath.basename(i) for i in valFiles]
@@ -140,6 +146,25 @@ def split_twrpc_json(jsonDir: str):
     images = jsonData['images']
     new_annotations = []
     new_images = []
+
+    trainImageId = []
+    for image in images:
+        if image['file_name'] in trainFiles:
+            new_images.append(image)
+            trainImageId.append(image['id'])
+    for ann in annotations:
+        if ann['image_id'] in trainImageId:
+            new_annotations.append(ann)
+
+    saveTrainJson = {}
+    saveTrainJson['categories'] = jsonData['categories']
+    saveTrainJson['images'] = new_images
+    saveTrainJson['annotations'] = new_annotations
+    with open(saveTrainDir, "w") as outfile:
+        json.dump(saveTrainJson, outfile, )
+
+    new_images.clear()
+    new_annotations.clear()
 
     valImageId = []
     for image in images:
@@ -175,15 +200,58 @@ def split_twrpc_json(jsonDir: str):
         json.dump(saveTestJson, outfile, )
 
 
+def delete_duplecate_download(rootDir: str):
+    """
+    刪除重複下載的檔案
+    :param rootDir:
+    :return:
+    """
+    files = glob.glob(os.path.join(rootDir, "*(*)*.jpg"))
+    for file in files:
+        os.remove(file)
+
+def coco_shrink_data(json_path, save_path, ratio):
+    """
+    縮減json資料
+    :param json_path:
+    :param save_path:
+    :param ratio: remove portion
+    :return:
+    """
+    with open(json_path, 'r') as fid:
+        data = json.load(fid)
+    assert data is not None
+    annotations = data['annotations']
+    images = data['images']
+    new_annotations = list()
+    new_images = list()
+    remain_images = random.choices(images, k=int(len(images) * ratio))
+    remain_img_ids = [i['id'] for i in remain_images]
+    for i in range(len(images)):
+        if images[i]['id'] in remain_img_ids:
+            new_images.append(images[i])
+    for ann in annotations:
+        if ann['image_id'] in remain_img_ids:
+            new_annotations.append(ann)
+    new_data = {}
+    new_data['categories'] = data['categories']
+    new_data['annotations'] = new_annotations
+    new_data['images'] = new_images
+    with open(save_path, "w") as outfile:
+        json.dump(new_data, outfile, )
+
 if __name__ == "__main__":
     print()
 
-    # rename_images_by_time(rootDir=r"D:\datasets\my_rpc\products", saveDir=r'D:\datasets\my_rpc\train2019')
+    # single_rename(rootDir=r"D:\datasets\tw_rpc\products", saveDir=r'D:\datasets\tw_rpc\train2019')
 
-    # checkout_rename(rootDir=r"D:\datasets\tw_rpc\chechout_original", saveDir=r'D:\datasets\tw_rpc\checkout')
+    # checkout_rename(rootDir=r"D:\datasets\tw_rpc\new_checkout_original", saveDir=r'D:\datasets\tw_rpc\checkout')
 
-    # save_bbox_image(imgDir=r'D:\datasets\my_rpc\train2019', jsonDir=r'D:\datasets\my_rpc\train2019.json',
-    #                 saveBboxDir=r'D:\datasets\my_rpc\train2019_crop', saveMaskDir=r'D:\datasets\my_rpc\train2019_mask')
+    # save_bbox_image(imgDir=r'D:\datasets\tw_rpc\train2019', jsonDir=r'D:\datasets\tw_rpc\train2019.json',
+    #                 saveBboxDir=r'D:\datasets\tw_rpc\train2019_crop', saveMaskDir=r'D:\datasets\tw_rpc\train2019_mask')
 
     # split_checkout_images(r'D:\datasets\tw_rpc\checkout')
-    split_twrpc_json(r'D:\datasets\tw_rpc\tw_rpc.json')
+    # split_twrpc_json(r'D:\datasets\tw_rpc\tw_rpc-4.json')
+
+    coco_shrink_data(r"D:\datasets\tw_rpc\val2019.json", r"D:\datasets\tw_rpc\val2019_quarter.json", 0.33)
+    # delete_duplecate_download(r'C:\Users\newia\Downloads\G 奶甜蜜女友郭鬼鬼躺在你身邊')

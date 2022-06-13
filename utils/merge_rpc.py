@@ -24,15 +24,14 @@ with open(demo_json_path) as fid:
     demo_data = json.load(fid)
 
 json_list = [
-    r"D:\datasets\tw_rpc\val2019.json",
-    r"D:\PycharmProject\rpc_toolboxes2\synthesize\synthesize_1500_test.json",
+    r"D:\datasets\tw_rpc\val2019_quarter.json",
 ]
 img_list = [
     r"D:\datasets\tw_rpc\val2019",
-    r"D:\PycharmProject\rpc_toolboxes2\synthesize\synthesize_1500_test_shadow",
+    r"D:\PycharmProject\rpc_toolboxes2\synthesize\synthesize_2000_test_shadow",
 ]
 save_dir_root = r'D:\datasets\tw_rpc\combine'
-save_folder = 'val_syn1500'
+save_folder = 'val_quarter_syn2000'
 save_path = os.path.join(save_dir_root, save_folder)
 os.makedirs(save_path, exist_ok=True)
 new_json = defaultdict()

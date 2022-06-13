@@ -26,15 +26,14 @@ import gc
 import traceback
 from scipy.stats import truncnorm
 import math
-
+from utils.config import CATEGORIES_WITH_BACKGROUND
 
 def get_truncated_normal(mean=0.25, sd=0.05, low=0.0, upp=1.0):
     return truncnorm(
         (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
 
 
-CATEGORIES = ['__background__', '001_drink', '002_drink', '003_chocolate', '004_chocolate', '005_candy', '006_candy',
-              '007_puffed_food', '008_puffed_food', '009_tissue', '010_tissue']
+CATEGORIES = CATEGORIES_WITH_BACKGROUND
 
 np.random.seed(42)
 CAT_COLORS = (1 - (np.random.rand(len(CATEGORIES) + 1, 3)) * 255).astype(np.uint8)
@@ -366,11 +365,11 @@ def init_globals(ann_counter, ann_json, image_json, ):
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Synthesize fake images")
-    parser.add_argument('--gen_num', type=int, default=50,
+    parser.add_argument('--gen_num', type=int, default=2000,
                         help='how many number of images need to create.')
     parser.add_argument('--suffix', type=str, default='test',
                         help='suffix for image folder and json file')
-    parser.add_argument('--thread', type=int, default=7,
+    parser.add_argument('--thread', type=int, default=6,
                         help='using how many thread to create')
     parser.add_argument('--chg_bg', type=bool, default=False,
                         help='use multiple background or not.')
@@ -466,15 +465,17 @@ if __name__ == '__main__':
     strategics_iter = iter(strategics)
     # print(strategics)
     jobs = list()
-    with ProcessPoolExecutor(max_workers=MAX_JOBS_IN_QUEUE, initializer=init_globals,
+    with ProcessPoolExecutor(max_workers=4, initializer=init_globals,
                              initargs=(ann_idx, json_ann, json_img,)) as executor:
         results = [executor.submit(create_image, output_dir, output_dir2, object_category_paths, level_dict, image_id,
                                    num_per_category, args.chg_bg, train_imgs_mask_dir, annotations, lock)
                    for image_id, num_per_category in strategics_iter]
-    # single core (for debug)
+
+    ### single core (for debug)
     # results = [create_image(output_dir, output_dir2, object_category_paths, level_dict, image_id, num_per_category,
     #                         args.chg_bg, train_imgs_mask_dir, annotations, None) for image_id, num_per_category in
     #            strategics_iter]
+
     json_cat = list()
     for idx, val in enumerate(CATEGORIES):
         if idx == 0:

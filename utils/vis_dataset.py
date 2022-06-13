@@ -101,7 +101,12 @@ if __name__ == "__main__":
     DATASET_DIR = r'D:\PycharmProject\rpc_toolboxes2\synthesize'
     args = make_parser().parse_args()
     if args.use_default:
-        args.img_path = os.path.join(DATASET_DIR, 'synthesize_50_test')
-        args.json_path = os.path.join(DATASET_DIR, 'synthesize_50_test.json')
-        args.save_path = os.path.join(DATASET_DIR, 'synthesize_50_test_labled')
+        args.img_path = os.path.join(DATASET_DIR, 'synthesize_3000_test')
+        args.json_path = os.path.join(DATASET_DIR, 'synthesize_3000_test.json')
+        args.save_path = os.path.join(DATASET_DIR, 'synthesize_3000_test_labled')
+
+        # args.img_path = os.path.join(DATASET_DIR, 'test2019')
+        # args.json_path = os.path.join(DATASET_DIR, 'test2019.json')
+        # args.save_path = os.path.join(DATASET_DIR, 'test2019_labeled')
+
     main(args)
