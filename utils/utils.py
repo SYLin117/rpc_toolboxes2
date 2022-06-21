@@ -9,6 +9,9 @@ from tqdm import tqdm
 from pycocotools.coco import COCO
 import os.path as ospath
 import random
+import itertools
+from multiprocessing import Pool, freeze_support
+from p_tqdm import p_map
 
 
 def single_rename(rootDir: str, saveDir: str):
@@ -112,12 +115,55 @@ def split_checkout_images(imgDir: str):
     testDir = ospath.join(parentDir, 'test2019')
     for file in files:
         diff_list = [1, 2]
-        dist = [.8, .2]
+        dist = [.5, .5]
         val_or_test = random.choices(diff_list, weights=dist, k=1, )[0]
         if val_or_test == 1:
             shutil.copyfile(file, ospath.join(valDir, ospath.basename(file)))
         else:
             shutil.copyfile(file, ospath.join(testDir, ospath.basename(file)))
+
+
+def copy_img(data):
+    """
+    data[0]: save root path
+    data[1]: file path
+    """
+    shutil.copyfile(data[1], ospath.join(data[0], ospath.basename(data[1])))
+
+
+def split_checkout_half(imgDir: str, saveDir1: str = None, saveDir2: str = None):
+    """
+    將資料夾中的影像拆成兩半
+    :param imgDir:
+    :param saveDir1:
+    :param saveDir2:
+    :return:
+    """
+    import time
+    random.seed(42)
+
+    files = glob.glob(ospath.join(imgDir, '*.jpg'))
+    random.shuffle(files)
+    mid = int(len(files) / 2)
+    first_half = files[:mid]
+    second_half = files[mid:]
+    start = time.time()
+    if saveDir1:
+        if ospath.exists(saveDir1):
+            shutil.rmtree(saveDir1)
+        os.makedirs(saveDir1)
+        with Pool(6) as pool:
+            a = list(zip(itertools.repeat(saveDir1), first_half))
+            pool.map(copy_img, a)
+
+    if saveDir2:
+        if ospath.exists(saveDir2):
+            shutil.rmtree(saveDir2)
+        os.makedirs(saveDir2)
+        with Pool(6) as pool:
+            a = list(zip(itertools.repeat(saveDir2), second_half))
+            pool.map(copy_img, a)
+    print('cost time: {}'.format(time.time() - start))
 
 
 def split_twrpc_json(jsonDir: str):
@@ -200,6 +246,62 @@ def split_twrpc_json(jsonDir: str):
         json.dump(saveTestJson, outfile, )
 
 
+def split_twrpc_json_by_folder(jsonDir: str, imgDir1: str, saveJson1: str, imgDir2: str, saveJson2: str):
+    """
+    將json資料依照train2019 val2019 test2019分類
+    :param jsonDir:
+    :return:
+    """
+    with open(jsonDir) as f:
+        jsonData = json.load(f)
+
+    firstFiles = glob.glob(ospath.join(imgDir1, '*.jpg'))
+    firstFiles = [ospath.basename(i) for i in firstFiles]
+
+    annotations = jsonData['annotations']
+    images = jsonData['images']
+
+
+    new_annotations = []
+    new_images = []
+    firstImageId = []
+    for image in images:
+        if image['file_name'] in firstFiles:
+            new_images.append(image)
+            firstImageId.append(image['id'])
+    for ann in annotations:
+        if ann['image_id'] in firstImageId:
+            new_annotations.append(ann)
+
+
+    secondFiles = glob.glob(ospath.join(imgDir2, '*.jpg'))
+    secondFiles = [ospath.basename(i) for i in secondFiles]
+    saveFirstJson = {}
+    saveFirstJson['categories'] = jsonData['categories']
+    saveFirstJson['images'] = new_images
+    saveFirstJson['annotations'] = new_annotations
+    with open(saveJson1, "w") as outfile:
+        json.dump(saveFirstJson, outfile, )
+
+    new_images.clear()
+    new_annotations.clear()
+    secondImageId = []
+    for image in images:
+        if image['file_name'] in secondFiles:
+            new_images.append(image)
+            secondImageId.append(image['id'])
+    for ann in annotations:
+        if ann['image_id'] in secondImageId:
+            new_annotations.append(ann)
+
+    saveSecondJson = {}
+    saveSecondJson['categories'] = jsonData['categories']
+    saveSecondJson['images'] = new_images
+    saveSecondJson['annotations'] = new_annotations
+    with open(saveJson2, "w") as outfile:
+        json.dump(saveSecondJson, outfile, )
+
+
 def delete_duplecate_download(rootDir: str):
     """
     刪除重複下載的檔案
@@ -210,7 +312,8 @@ def delete_duplecate_download(rootDir: str):
     for file in files:
         os.remove(file)
 
-def coco_shrink_data(json_path, save_path, ratio):
+
+def coco_shrink_data(json_path, save_path, ratio, k):
     """
     縮減json資料
     :param json_path:
@@ -225,7 +328,9 @@ def coco_shrink_data(json_path, save_path, ratio):
     images = data['images']
     new_annotations = list()
     new_images = list()
-    remain_images = random.choices(images, k=int(len(images) * ratio))
+    # remain_images = random.choices(images, k=int(len(images) * ratio) if k is None else k)
+    remain_images = random.sample(images, int(len(images) * ratio) if k is None else k)
+    remain_images = sorted(remain_images, key=lambda x: x['id'])
     remain_img_ids = [i['id'] for i in remain_images]
     for i in range(len(images)):
         if images[i]['id'] in remain_img_ids:
@@ -240,6 +345,105 @@ def coco_shrink_data(json_path, save_path, ratio):
     with open(save_path, "w") as outfile:
         json.dump(new_data, outfile, )
 
+
+def resize_images(files: list, target_size: int, interpolation: int, target_folder: str = None, isMask: bool = False):
+    """
+    Args:
+        files: list of images path
+        target_size: int
+        interpolation: cv2.INTER_...
+
+    Returns:
+    """
+    if target_folder:
+        os.makedirs(target_folder, exist_ok=True)
+    if not isMask:
+        for file in tqdm(files):
+            filename = os.path.basename(file)
+            img_cv = cv2.imread(file, cv2.IMREAD_COLOR)
+            img_cv = cv2.resize(img_cv, (target_size, target_size), interpolation=interpolation)
+            if not target_folder:
+                cv2.imwrite(file, img_cv)
+            else:
+                cv2.imwrite(os.path.join(target_folder, filename), img_cv)
+    else:
+        for file in tqdm(files):
+            filename = os.path.basename(file)
+            img_cv = cv2.imread(file, cv2.IMREAD_COLOR)
+            img_cv = cv2.resize(img_cv, (target_size, target_size), interpolation=interpolation)
+            # kernel =
+            # img_cv = skimage.transform.resize(img_cv,
+            #                                   (target_size, target_size),
+            #                                   mode='edge',
+            #                                   anti_aliasing=False,
+            #                                   anti_aliasing_sigma=None,
+            #                                   preserve_range=True,
+            #                                   order=0)
+            if not target_folder:
+                cv2.imwrite(file, img_cv)
+            else:
+                cv2.imwrite(os.path.join(target_folder, filename), img_cv)
+
+
+def rescale_coco_data(image_folder: str, mask_folder: str = None,
+                      json_file: str = None,
+                      target_size: int = 512,
+                      target_image_folder: str = None,
+                      target_mask_folder: str = None, target_json_file: str = None):
+    """
+    rescale images, masks and bounding box in json file of coco style data
+    after small the dataset
+    could use rpc_mask_2_coco.py convert mask to seg datas
+    Args:
+        image_folder: path of images folder
+        mask_folder:  path of masks folder
+        json_file: path of json file
+    Returns: None
+    """
+
+    our_coco = COCO(json_file)
+    images = glob.glob(os.path.join(image_folder, "*.jpg"))
+    if mask_folder:
+        masks = glob.glob(os.path.join(mask_folder, "*.png"))
+    with open(json_file) as fid:
+        json_data = json.load(fid)
+    new_anns = []
+    ann_idx = 0
+    imgToAnns = our_coco.imgToAnns
+    for k, v in imgToAnns.items():  # k: img_id, v: anns
+        width = our_coco.imgs[k]['width']
+        height = our_coco.imgs[k]['height']
+        width_scale = target_size / width
+        height_scale = target_size / height
+        for i, ann in enumerate(v):
+            new_anns.append({
+                'bbox': (
+                    int(ann['bbox'][0] * width_scale),
+                    int(ann['bbox'][1] * height_scale),
+                    int(ann['bbox'][2] * width_scale),
+                    int(ann['bbox'][3] * height_scale)),
+                'category_id': ann['category_id'],
+                'image_id': k,
+                'iscrowd': 0,
+                'id': ann_idx
+            })
+            ann_idx += 1
+    print("... resize images ...")
+    resize_images(images, target_size, cv2.INTER_CUBIC, target_image_folder)
+    print("... resize mask ...")
+    if mask_folder is not None:
+        resize_images(masks, target_size, cv2.INTER_NEAREST_EXACT, target_mask_folder, isMask=True)
+    json_images = json_data['images']
+    for img in json_images:
+        img['width'] = target_size
+        img['height'] = target_size
+    json_data['images'] = json_images
+    json_data['annotations'] = new_anns
+    with open(target_json_file, 'w') as fid:
+        json.dump(json_data, fid)
+
+
+
 if __name__ == "__main__":
     print()
 
@@ -253,5 +457,24 @@ if __name__ == "__main__":
     # split_checkout_images(r'D:\datasets\tw_rpc\checkout')
     # split_twrpc_json(r'D:\datasets\tw_rpc\tw_rpc-4.json')
 
-    coco_shrink_data(r"D:\datasets\tw_rpc\val2019.json", r"D:\datasets\tw_rpc\val2019_quarter.json", 0.33)
+    # coco_shrink_data(r"D:\datasets\tw_rpc\val2019.json", r"D:\datasets\tw_rpc\val2019_100.json", None, 100)
     # delete_duplecate_download(r'C:\Users\newia\Downloads\G 奶甜蜜女友郭鬼鬼躺在你身邊')
+
+    # split_checkout_half(r"D:\datasets\rpc_list\synthesize_30000_train_shadow",
+    #                     None,
+    #                     r'D:\datasets\rpc_list3\synthesize_15000_train2(shadow)')
+
+    # split_twrpc_json_by_folder(r"D:\datasets\rpc_list3\synthesize_30000_train.json",
+    #                            r"D:\datasets\rpc_list3\synthesize_15000_train1",
+    #                            r"D:\datasets\rpc_list3\synthesize_15000_train1.json",
+    #                            r"D:\datasets\rpc_list3\synthesize_15000_train2",
+    #                            r"D:\datasets\rpc_list3\synthesize_15000_train2.json")
+
+    name = 'val_15000_15000'
+    rescale_coco_data(r"D:\datasets\rpc_list3\combine\{}".format(name),
+                      None,
+                      r"D:\datasets\rpc_list3\combine\{}.json".format(name),
+                      512,
+                      r'E:\datasets\rpc\{}'.format(name),
+                      None,
+                      r'E:\datasets\rpc\{}.json'.format(name))
