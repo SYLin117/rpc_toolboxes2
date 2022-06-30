@@ -19,24 +19,31 @@ def sort_ann_by_img(json_path):
 
 
 # 提取一些基本訊息
-demo_json_path = r"D:\datasets\tw_rpc\train2019.json"
+demo_json_path = r"D:\datasets\retail_product_checkout\instances_train2019.json"
+# demo_json_path = r"D:\datasets\tw_rpc\train2019.json"
+
 with open(demo_json_path) as fid:
     demo_data = json.load(fid)
 
 json_list = [
     r"D:\datasets\retail_product_checkout\instances_val2019.json",
     r"D:\datasets\rpc_list3\synthesize_15000_train1.json",
-    r"D:\datasets\rpc_list3\synthesize_15000_train2.json",
+    r"D:\datasets\rpc_list3\synthesize_15000_train2(cyclegan).json"
 ]
 img_list = [
     r"D:\datasets\retail_product_checkout\val2019",
     r"D:\datasets\rpc_list3\synthesize_15000_train1",
-    r"D:\datasets\rpc_list3\synthesize_15000_train2(cyclegan)",
+    r"D:\datasets\rpc_list3\synthesize_15000_train2(UNIT)"
 ]
+# save_dir_root = r'D:\datasets\rpc_list3\combine'
 save_dir_root = r'D:\datasets\rpc_list3\combine'
-save_folder = 'val_15000_15000(cyclegan)'
+save_folder = 'val_15000_15000(unit)'
 save_path = os.path.join(save_dir_root, save_folder)
-os.makedirs(save_path, exist_ok=True)
+
+if os.path.exists(save_path):
+    shutil.rmtree(save_path)
+os.makedirs(save_path)
+
 new_json = defaultdict()
 new_images = list()
 new_annotations = list()
