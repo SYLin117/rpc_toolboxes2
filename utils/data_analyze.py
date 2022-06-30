@@ -1,26 +1,94 @@
-import pandas as pd
+## 顯示包含特定類別的影像
+import numpy as np
+import matplotlib
 
-if __name__ == "__main__":
-    df = pd.read_excel('../tmp.xlsx')
-    # print(df.head(3))
+# matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from PIL import Image
+import requests
+from pycocotools.coco import COCO
+import os
+import random
+from collections import defaultdict, OrderedDict
+import json
+from tqdm import tqdm
+import sys
+from IPython.display import display
+import cv2
 
-    df['improve'] = df.syn3 - df.actual
-    # print(df.head(3))
-    # print(df[df.actual > .9].improve.mean())  # 0.0063
-    # print(df[df.actual < .9].improve.mean())  # 0.0327
-    # print(df[df.actual < .8].improve.mean())  # 0.0430
-    # print(df[df.actual < .7].improve.mean())  # 0.0534
+random.seed(10)
 
-    print(df.sort_values(by=['improve'], ascending=False).head(10))
-    """
-    199        200_stationery   0.675  0.698  0.698  0.747    0.072
-    140               141_gum   0.735  0.778  0.777  0.793    0.058
-    165  166_personal_hygiene   0.843  0.856  0.869  0.899    0.056
-    144             145_candy   0.798  0.800  0.810  0.847    0.049
-    21          22_dried_food   0.889  0.911  0.921  0.937    0.048
-    149             150_candy   0.830  0.848  0.868  0.870    0.040
-    128         129_chocolate   0.824  0.832  0.839  0.862    0.038
-    198        199_stationery   0.877  0.890  0.890  0.913    0.036
-    123         124_chocolate   0.889  0.901  0.912  0.925    0.036
-    197        198_stationery   0.620  0.628  0.631  0.655    0.035
-    """
+# json_path = r'D:\datasets\retail_product_checkout\instances_test2019.json'
+#
+# rpc_coco = COCO(annotation_file=json_path)
+#
+# catIds = [200]
+#
+# cats = rpc_coco.loadCats(catIds)
+# cat_names = [cat["name"] for cat in cats]
+# cat_names = ' '.join(cat_names)
+#
+# filenames = [i['file_name'] for i in rpc_coco.loadImgs(rpc_coco.getImgIds(catIds=catIds))]
+# random.shuffle(filenames)
+# filenames = filenames[:10]
+# images = []
+# for filename in filenames:
+#     # images.append(mpimg.imread(os.path.join(r'D:/datasets/retail_product_checkout/test2019', filename)))
+#     images.append(mpimg.imread(os.path.join(r'E:\rpc_inference\origin', filename)))
+#     # images.append(cv2.imread(os.path.join(r'E:\rpc_inference\origin', filename)))
+# filename_img = list(zip(filenames, images))
+#
+# plt.gcf().set_dpi(144)
+# plt.figure(figsize=(10, 10))
+# columns = 3
+# for i, data in enumerate(images):
+#     plt.subplot(int(len(images) / columns + 1) + 1, columns, i + 1)
+#     # fig.add_subplot(int(len(images) / columns + 1) + 1, columns, i + 1)
+#     plt.imshow(data[1])
+# # plt.show()
+# plt.savefig('{}-result.png'.format(cat_names))
+
+coco_annotation_file_path = r"D:\datasets\retail_product_checkout\instances_test2019.json"
+COCO_TEST = COCO(annotation_file=coco_annotation_file_path)
+catIds = [200]
+
+cats = COCO_TEST.loadCats(catIds)
+cat_names = [cat["name"] for cat in cats]
+cat_names = ' '.join(cat_names)
+
+filenames = [i['file_name'] for i in COCO_TEST.loadImgs(COCO_TEST.getImgIds(catIds=catIds))]
+filenames.sort()
+image_num = 200
+filenames = filenames[:image_num]
+
+images = []
+for filename in filenames:
+    img = Image.open(os.path.join(r'E:\rpc_inference\origin', filename))
+    # img = mpimg.imread(os.path.join(r'E:\rpc_inference\origin', filename))
+    resize = img.resize((np.array(img.size) / 5).astype(int))
+    images.append(resize)
+
+# plt.figure(figsize=(10, 10 * image_num))
+fig = plt.figure(figsize=(50, 50))
+# fig = plt.figure(figsize=(30, 30))
+# columns = 1
+cols = 1
+rows = int(len(images) / cols + 1) + 1
+axes = []
+for i, image in enumerate(images):
+    # ax = plt.subplot(int(len(images) / columns + 1) + 1, columns, i + 1)
+    # ax = plt.subplot(int(len(images) / columns + 1) + 1, columns, figure=(30, 30))
+    # ax.set_title(filenames[i])
+    # plt.imshow(image)
+
+    # fig.add_subplot(rows, cols, i + 1)
+    # plt.imshow(image)
+
+    axes.append(fig.add_subplot(rows, cols, i + 1))
+    subplot_title = (filenames[i])
+    axes[-1].set_title(subplot_title)
+    plt.imshow(image)
+# fig.tight_layout()
+# plt.show()
+# plt.savefig('{}-result.png'.format(cat_names))
